@@ -16,7 +16,9 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
   double _averageDisconnectDuration = 0;
   double _averageConnectionDuration = 0;
   List<Map<String, dynamic>> _disconnectHistory = [];
+  List<Map<String, dynamic>> _disconnectHistoryToday = [];
   int _countdown = 0;
+  int _disconnectedCountdown = 0;
 
   @override
   void initState() {
@@ -39,6 +41,12 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
         _countdown = seconds;
       });
     });
+
+    _connectionService.disconnectedCountdownStream.listen((seconds) {
+      setState(() {
+        _disconnectedCountdown = seconds;
+      });
+    });
   }
 
   Future<void> _updateAverages() async {
@@ -56,6 +64,11 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
     final history = await _connectionService.getDisconnectHistory();
     setState(() {
       _disconnectHistory = history;
+      _disconnectHistoryToday = _disconnectHistory.where((test) {
+        return DateUtils.isSameDay(
+            DateTime.fromMillisecondsSinceEpoch(test['disconnectTime'] as int),
+            DateTime.now());
+      }).toList();
     });
   }
 
@@ -99,18 +112,36 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                 style: TextStyle(fontSize: 18),
               ),
               const SizedBox(height: 20),
-              Text(
-                "Estimated time until next disconnect: ${_countdown > 0 ? _formatDuration(_countdown) : 0}",
-                style: TextStyle(
-                    fontSize: 18,
-                    color: _countdown > 0 ? Colors.blue : Colors.red),
-              ),
+              if (_isConnected)
+                Text(
+                  "Estimated time until next disconnect: ${_countdown > 0 ? _formatDuration(_countdown) : 0}",
+                  style: TextStyle(
+                      fontSize: 18,
+                      color: _countdown > 0 ? Colors.blue : Colors.red),
+                ),
+              if (!_isConnected)
+                Text(
+                  "Estimated time until reconnect: ${_disconnectedCountdown > 0 ? _formatDuration(_disconnectedCountdown) : 0}",
+                  style: TextStyle(
+                      fontSize: 18,
+                      color: _disconnectedCountdown > 0
+                          ? Colors.red
+                          : Colors.blue),
+                ),
               const SizedBox(height: 20),
+              Text(
+                "Total Disconnects: ${_disconnectHistory.length} (Today: ${_disconnectHistoryToday.length})",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(
+                height: 20,
+              ),
               Expanded(
                 child: ListView.builder(
                   itemCount: _disconnectHistory.length,
                   itemBuilder: (context, index) {
-                    final log = _disconnectHistory[index];
+                    final reversedOrder = _disconnectHistory.reversed.toList();
+                    final log = reversedOrder[index];
                     final disconnectTime = DateTime.fromMillisecondsSinceEpoch(
                         log['disconnectTime'] as int);
                     final reconnectTime = log['reconnectTime'] != null
@@ -122,30 +153,20 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                         : 'Ongoing';
 
                     String timeBetweenDisconnects = '';
-                    if (index > 0) {
-                      final previousReconnectTime =
-                          DateTime.fromMillisecondsSinceEpoch(
-                              _disconnectHistory[index - 1]['reconnectTime']
-                                  as int);
-                      timeBetweenDisconnects = _formatTimeDifference(
-                          previousReconnectTime, disconnectTime);
+                    if (index < reversedOrder.length - 1) {
+                      if (reversedOrder[index + 1]['reconnectTime'] != null) {
+                        final previousReconnectTime =
+                            DateTime.fromMillisecondsSinceEpoch(
+                                reversedOrder[index + 1]['reconnectTime']
+                                    as int);
+                        timeBetweenDisconnects = _formatTimeDifference(
+                            previousReconnectTime, disconnectTime);
+                      }
                     }
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        if (timeBetweenDisconnects.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12.0),
-                            child: Text(
-                              "Time between disconnects: $timeBetweenDisconnects",
-                              style: TextStyle(
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blueGrey,
-                              ),
-                            ),
-                          ),
                         Card(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10.0),
@@ -195,6 +216,18 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                             ),
                           ),
                         ),
+                        if (timeBetweenDisconnects.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                            child: Text(
+                              "Time between disconnects: $timeBetweenDisconnects",
+                              style: TextStyle(
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueGrey,
+                              ),
+                            ),
+                          ),
                       ],
                     );
                   },

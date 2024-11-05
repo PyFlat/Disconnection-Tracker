@@ -9,10 +9,17 @@ class ConnectionService {
 
   DateTime? _lastDisconnectedTime;
   Timer? _countdownTimer;
+  Timer? _disconnectedCountdownTimer;
   final StreamController<int> _countdownStreamController =
       StreamController<int>.broadcast();
 
+  final StreamController<int> _disconnectedCountdownStreamController =
+      StreamController<int>.broadcast();
+
   Stream<int> get countdownStream => _countdownStreamController.stream;
+
+  Stream<int> get disconnectedCountdownStream =>
+      _disconnectedCountdownStreamController.stream;
 
   Future<void> init() async {
     _subscription = connectivity.onStatusChange.listen(_updateConnectionStatus);
@@ -24,6 +31,7 @@ class ConnectionService {
     if (status == InternetStatus.disconnected) {
       _lastDisconnectedTime = now;
       await _dbHelper.logDisconnect(now);
+      _startDisconnectedCountdown();
       _resetCountdown();
     } else if (status == InternetStatus.connected) {
       if (_lastDisconnectedTime != null) {
@@ -31,6 +39,7 @@ class ConnectionService {
       }
       _lastDisconnectedTime = null;
       _startCountdown();
+      _resetDisconnectedCountdown();
     }
   }
 
@@ -94,6 +103,30 @@ class ConnectionService {
         _countdownStreamController.add(countdownSeconds);
       }
     });
+  }
+
+  void _startDisconnectedCountdown() async {
+    double avgDisconnectionDuration =
+        await calculateAverageDisconnectDuration();
+    if (avgDisconnectionDuration == 0) return;
+    int countdownSeconds = avgDisconnectionDuration.toInt();
+    _disconnectedCountdownTimer?.cancel();
+    _disconnectedCountdownStreamController.add(countdownSeconds);
+
+    _disconnectedCountdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      countdownSeconds--;
+      if (countdownSeconds <= 0) {
+        _disconnectedCountdownStreamController.add(0);
+        timer.cancel();
+      } else {
+        _disconnectedCountdownStreamController.add(countdownSeconds);
+      }
+    });
+  }
+
+  void _resetDisconnectedCountdown() {
+    _disconnectedCountdownTimer?.cancel();
+    _disconnectedCountdownStreamController.add(0);
   }
 
   void _resetCountdown() {
