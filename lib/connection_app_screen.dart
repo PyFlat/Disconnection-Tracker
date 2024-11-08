@@ -64,11 +64,15 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
     final history = await _connectionService.getDisconnectHistory();
     setState(() {
       _disconnectHistory = history;
-      _disconnectHistoryToday = _disconnectHistory.where((test) {
-        return DateUtils.isSameDay(
-            DateTime.fromMillisecondsSinceEpoch(test['disconnectTime'] as int),
-            DateTime.now());
-      }).toList();
+      _disconnectHistoryToday =
+          _disconnectHistory.where((test) {
+            return DateUtils.isSameDay(
+              DateTime.fromMillisecondsSinceEpoch(
+                test['disconnectTime'] as int,
+              ),
+              DateTime.now(),
+            );
+          }).toList();
     });
   }
 
@@ -116,26 +120,25 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                 Text(
                   "Estimated time until next disconnect: ${_countdown > 0 ? _formatDuration(_countdown) : 0}",
                   style: TextStyle(
-                      fontSize: 18,
-                      color: _countdown > 0 ? Colors.blue : Colors.red),
+                    fontSize: 18,
+                    color: _countdown > 0 ? Colors.blue : Colors.red,
+                  ),
                 ),
               if (!_isConnected)
                 Text(
                   "Estimated time until reconnect: ${_disconnectedCountdown > 0 ? _formatDuration(_disconnectedCountdown) : 0}",
                   style: TextStyle(
-                      fontSize: 18,
-                      color: _disconnectedCountdown > 0
-                          ? Colors.red
-                          : Colors.blue),
+                    fontSize: 18,
+                    color:
+                        _disconnectedCountdown > 0 ? Colors.red : Colors.blue,
+                  ),
                 ),
               const SizedBox(height: 20),
               Text(
                 "Total Disconnects: ${_disconnectHistory.length} (Today: ${_disconnectHistoryToday.length})",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              const SizedBox(
-                height: 20,
-              ),
+              const SizedBox(height: 20),
               Expanded(
                 child: ListView.builder(
                   itemCount: _disconnectHistory.length,
@@ -143,24 +146,33 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                     final reversedOrder = _disconnectHistory.reversed.toList();
                     final log = reversedOrder[index];
                     final disconnectTime = DateTime.fromMillisecondsSinceEpoch(
-                        log['disconnectTime'] as int);
-                    final reconnectTime = log['reconnectTime'] != null
-                        ? DateTime.fromMillisecondsSinceEpoch(
-                            log['reconnectTime'] as int)
-                        : null;
-                    final duration = reconnectTime != null
-                        ? _formatTimeDifference(disconnectTime, reconnectTime)
-                        : 'Ongoing';
+                      log['disconnectTime'] as int,
+                    );
+                    final reconnectTime =
+                        log['reconnectTime'] != null
+                            ? DateTime.fromMillisecondsSinceEpoch(
+                              log['reconnectTime'] as int,
+                            )
+                            : null;
+                    final duration =
+                        reconnectTime != null
+                            ? _formatTimeDifference(
+                              disconnectTime,
+                              reconnectTime,
+                            )
+                            : 'Ongoing';
 
                     String timeBetweenDisconnects = '';
                     if (index < reversedOrder.length - 1) {
                       if (reversedOrder[index + 1]['reconnectTime'] != null) {
                         final previousReconnectTime =
                             DateTime.fromMillisecondsSinceEpoch(
-                                reversedOrder[index + 1]['reconnectTime']
-                                    as int);
+                              reversedOrder[index + 1]['reconnectTime'] as int,
+                            );
                         timeBetweenDisconnects = _formatTimeDifference(
-                            previousReconnectTime, disconnectTime);
+                          previousReconnectTime,
+                          disconnectTime,
+                        );
                       }
                     }
 
@@ -184,9 +196,10 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                                     Icon(Icons.wifi_off, color: Colors.red),
                                     const SizedBox(width: 8),
                                     Text(
-                                      "Disconnected at: ${DateFormat("dd.MM.yyyy hh:mm:ss.ms").format(disconnectTime)}",
+                                      "Disconnected at: ${DateFormat("dd.MM.yyyy HH:mm:ss.ms").format(disconnectTime)}",
                                       style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -198,10 +211,11 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
                                     const SizedBox(width: 8),
                                     reconnectTime != null
                                         ? Text(
-                                            "Reconnected at: ${DateFormat("dd.MM.yyyy hh:mm:ss.ms").format(reconnectTime)}",
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold),
-                                          )
+                                          "Reconnected at: ${DateFormat("dd.MM.yyyy HH:mm:ss.ms").format(reconnectTime)}",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )
                                         : const Text("Not yet reconnected"),
                                   ],
                                 ),
