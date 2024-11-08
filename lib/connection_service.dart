@@ -3,7 +3,8 @@ import 'package:internet_connection_checker_plus/internet_connection_checker_plu
 import 'database_helper.dart';
 
 class ConnectionService {
-  final InternetConnection connectivity = InternetConnection();
+  final InternetConnection connectivity =
+      InternetConnection.createInstance(checkInterval: Duration(seconds: 1));
   final DatabaseHelper _dbHelper = DatabaseHelper();
   late StreamSubscription _subscription;
 
