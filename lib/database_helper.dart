@@ -24,7 +24,9 @@ class DatabaseHelper {
     }
     var databaseFactory = databaseFactoryFfi;
     String path = join(
-        (await getApplicationSupportDirectory()).path, 'connection_logs.db');
+      (await getApplicationSupportDirectory()).path,
+      'connection_logs.db',
+    );
     return await databaseFactory.openDatabase(
       path,
       options: OpenDatabaseOptions(
@@ -44,17 +46,14 @@ class DatabaseHelper {
 
   Future<void> logDisconnect(DateTime disconnectTime) async {
     final db = await database;
-    await db.insert(
-        'logs', {'disconnectTime': disconnectTime.millisecondsSinceEpoch});
+    await db.insert('logs', {
+      'disconnectTime': disconnectTime.millisecondsSinceEpoch,
+    });
   }
 
   Future<void> logReconnect(DateTime reconnectTime) async {
     final db = await database;
-    final lastDisconnect = await db.query(
-      'logs',
-      orderBy: 'id DESC',
-      limit: 1,
-    );
+    final lastDisconnect = await db.query('logs', orderBy: 'id DESC', limit: 1);
 
     if (lastDisconnect.isNotEmpty) {
       int? id = lastDisconnect.first['id'] as int?;

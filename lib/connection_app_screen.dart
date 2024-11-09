@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 import 'connection_service.dart';
 import 'package:intl/intl.dart';
+import 'logger.dart';
 
 class ConnectionStatusApp extends StatefulWidget {
   const ConnectionStatusApp({super.key});
@@ -91,7 +93,21 @@ class ConnectionStatusAppState extends State<ConnectionStatusApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        appBar: AppBar(title: const Text("Connection Status Tracker")),
+        appBar: AppBar(
+          title: const Text("Connection Status Tracker"),
+          actions: [
+            IconButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => TalkerScreen(talker: talker),
+                  ),
+                );
+              },
+              icon: Icon(Icons.my_library_books_rounded),
+            ),
+          ],
+        ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
