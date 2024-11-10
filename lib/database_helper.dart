@@ -68,6 +68,15 @@ class DatabaseHelper {
     }
   }
 
+  Future<Map<String, dynamic>> getLastLog() async {
+    final db = await database;
+    final query = await db.rawQuery(
+      "SELECT * FROM logs ORDER BY id DESC LIMIT 1",
+    );
+
+    return query.first;
+  }
+
   Future<List<Map<String, dynamic>>> getAllLogs() async {
     final db = await database;
     return await db.query('logs');

@@ -3,28 +3,38 @@ import 'package:internet_connection_checker_plus/internet_connection_checker_plu
 import 'database_helper.dart';
 
 class ConnectionService {
-  final InternetConnection connectivity =
-      InternetConnection.createInstance(checkInterval: Duration(seconds: 1));
+  final InternetConnection connectivity = InternetConnection.createInstance(
+    checkInterval: Duration(seconds: 1),
+  );
   final DatabaseHelper _dbHelper = DatabaseHelper();
   late StreamSubscription _subscription;
 
   DateTime? _lastDisconnectedTime;
   Timer? _countdownTimer;
   Timer? _disconnectedCountdownTimer;
-  final StreamController<int> _countdownStreamController =
-      StreamController<int>.broadcast();
+  Timer? _lastDisconnectedTimer;
+  final StreamController<Map<String, dynamic>> _countdownStreamController =
+      StreamController<Map<String, dynamic>>.broadcast();
 
   final StreamController<int> _disconnectedCountdownStreamController =
       StreamController<int>.broadcast();
 
-  Stream<int> get countdownStream => _countdownStreamController.stream;
+  final StreamController<int> _lastDisconnectedCounterStreamController =
+      StreamController<int>.broadcast();
+
+  Stream<Map<String, dynamic>> get countdownStream =>
+      _countdownStreamController.stream;
 
   Stream<int> get disconnectedCountdownStream =>
       _disconnectedCountdownStreamController.stream;
 
+  Stream<int> get lastDisconnectedCounterStream =>
+      _lastDisconnectedCounterStreamController.stream;
+
   Future<void> init() async {
     _subscription = connectivity.onStatusChange.listen(_updateConnectionStatus);
     _startCountdown();
+    _startDisconnectedCounter();
   }
 
   Future<void> _updateConnectionStatus(InternetStatus status) async {
@@ -40,12 +50,20 @@ class ConnectionService {
       }
       _lastDisconnectedTime = null;
       _startCountdown();
+      _startDisconnectedCounter();
       _resetDisconnectedCountdown();
     }
   }
 
   Future<List<Map<String, dynamic>>> getDisconnectHistory() async {
     return await _dbHelper.getAllLogs();
+  }
+
+  Future<DateTime> getLast({disconnect = false}) async {
+    final lastLog = await _dbHelper.getLastLog();
+    return DateTime.fromMillisecondsSinceEpoch(
+      lastLog[disconnect ? "disconnectTime" : "reconnectTime"],
+    );
   }
 
   Future<double> calculateAverageDisconnectDuration() async {
@@ -74,35 +92,88 @@ class ConnectionService {
     for (var log in logs) {
       if (log['disconnectTime'] != null && log['reconnectTime'] != null) {
         if (lastConnect != null) {
-          int connectDuration = (log['disconnectTime'] as int) -
+          int connectDuration =
+              (log['disconnectTime'] as int) -
               lastConnect.millisecondsSinceEpoch;
           totalDuration += connectDuration;
           connectionCount++;
         }
-        lastConnect =
-            DateTime.fromMillisecondsSinceEpoch(log['reconnectTime'] as int);
+        lastConnect = DateTime.fromMillisecondsSinceEpoch(
+          log['reconnectTime'] as int,
+        );
       }
     }
 
     return connectionCount == 0 ? 0 : totalDuration / connectionCount / 1000;
   }
 
+  Future<double> calculateLowestConnectionDuration() async {
+    final logs = await _dbHelper.getAllLogs();
+    int? minDuration;
+    DateTime? lastConnect;
+
+    for (var log in logs) {
+      if (log['disconnectTime'] != null && log['reconnectTime'] != null) {
+        if (lastConnect != null) {
+          int connectDuration =
+              (log['disconnectTime'] as int) -
+              lastConnect.millisecondsSinceEpoch;
+
+          if (minDuration == null || connectDuration < minDuration) {
+            minDuration = connectDuration;
+          }
+        }
+        lastConnect = DateTime.fromMillisecondsSinceEpoch(
+          log['reconnectTime'] as int,
+        );
+      }
+    }
+
+    return minDuration == null ? 0 : minDuration / 1000;
+  }
+
   void _startCountdown() async {
     double avgConnectionDuration = await calculateAverageConnectionDuration();
-    if (avgConnectionDuration == 0) return;
+    double lwstConnectionDuration = await calculateLowestConnectionDuration();
+    if (avgConnectionDuration == 0 || lwstConnectionDuration == 0) return;
 
     int countdownSeconds = avgConnectionDuration.toInt();
+    int lowestCountdownSeconds = lwstConnectionDuration.toInt();
+
+    DateTime lastReconnectedTime = await getLast();
+
+    DateTime targetTime = lastReconnectedTime.add(
+      Duration(seconds: countdownSeconds),
+    );
+
+    DateTime targetTime2 = lastReconnectedTime.add(
+      Duration(seconds: lowestCountdownSeconds),
+    );
+
+    countdownSeconds = targetTime.difference(DateTime.now()).inSeconds;
+
+    lowestCountdownSeconds = targetTime2.difference(DateTime.now()).inSeconds;
+
     _countdownTimer?.cancel();
-    _countdownStreamController.add(countdownSeconds);
+    _countdownStreamController.add({
+      "average": countdownSeconds,
+      "lowest": lowestCountdownSeconds,
+    });
 
     _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       countdownSeconds--;
+      lowestCountdownSeconds--;
+
       if (countdownSeconds <= 0) {
-        _countdownStreamController.add(0);
-        timer.cancel();
-      } else {
-        _countdownStreamController.add(countdownSeconds);
+        countdownSeconds = 0;
       }
+      if (lowestCountdownSeconds <= 0) {
+        lowestCountdownSeconds = 0;
+      }
+      _countdownStreamController.add({
+        "average": countdownSeconds,
+        "lowest": lowestCountdownSeconds,
+      });
     });
   }
 
@@ -125,6 +196,21 @@ class ConnectionService {
     });
   }
 
+  void _startDisconnectedCounter() async {
+    DateTime now = DateTime.now();
+    DateTime lastReconnectedTime = await getLast();
+
+    int timeDifference = now.difference(lastReconnectedTime).inSeconds;
+    _lastDisconnectedTimer?.cancel();
+    _lastDisconnectedCounterStreamController.add(timeDifference);
+
+    _lastDisconnectedTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      timeDifference++;
+
+      _lastDisconnectedCounterStreamController.add(timeDifference);
+    });
+  }
+
   void _resetDisconnectedCountdown() {
     _disconnectedCountdownTimer?.cancel();
     _disconnectedCountdownStreamController.add(0);
@@ -132,7 +218,7 @@ class ConnectionService {
 
   void _resetCountdown() {
     _countdownTimer?.cancel();
-    _countdownStreamController.add(0);
+    _countdownStreamController.add({"average": 0, "lowest": 0});
   }
 
   void dispose() {
