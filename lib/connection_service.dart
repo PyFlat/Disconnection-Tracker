@@ -59,7 +59,7 @@ class ConnectionService {
     return await _dbHelper.getAllLogs();
   }
 
-  Future<DateTime> getLast({disconnect = false}) async {
+  Future<DateTime> getLast({bool disconnect = false}) async {
     final lastLog = await _dbHelper.getLastLog();
     return DateTime.fromMillisecondsSinceEpoch(
       lastLog[disconnect ? "disconnectTime" : "reconnectTime"],

@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.0-78.0.dev
+  sdk: ^3.12.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -37,11 +37,11 @@ dependencies:
   sqflite: ^2.4.0
   sqflite_common_ffi: ^2.3.4
   path: ^1.9.0
-  internet_connection_checker_plus: ^2.5.2
+  internet_connection_checker_plus: ^3.1.1
   path_provider: ^2.1.5
-  intl: ^0.19.0
-  talker_flutter: ^4.4.1
-  sqlite3_flutter_libs: ^0.5.26
+  intl: ^0.20.3
+  talker_flutter: ^5.1.17
+  sqlite3_flutter_libs: ^0.6.0+eol
 
 dev_dependencies:
   flutter_test:
@@ -52,7 +52,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
